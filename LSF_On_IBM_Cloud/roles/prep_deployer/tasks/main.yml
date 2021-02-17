@@ -5,21 +5,111 @@
 #  restricted by GSA ADP Schedule Contract with IBM Corp.
 # -----------------------------------
 
+# Set up required packages for the RedHat 8 family
+- name: Install necessary packages
+  yum:
+    name: [tar, httpd, createrepo, emacs-nox, rsync, yum-utils, ipmitool, net-tools, lsof, bc, unzip, python3]
+    state: latest
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version == "8"
+
+- name: Install boto3 and botocore with pip3 module
+  pip:
+    name:
+      - boto3
+      - botocore
+    executable: pip3
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version == "8"
+
+# Set up required packages for the RedHat 7 family
+- name: Install necessary packages
+  yum:
+    name: [httpd, createrepo, emacs-nox, rsync, yum-utils, ipmitool, net-tools, lsof, bc, unzip, epel-release, python3]
+    state: latest
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version == "7"
+
+- name: Install pip
+  yum:
+    name: python-pip
+    state: installed
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version == "7"
+
+- name: Install boto3 and botocore with pip module
+  pip:
+    name:
+      - boto3
+      - botocore
+    executable: pip
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version == "7"
+
+# Download binaries from S3 bucket
+- name: Download file from S3 bucket
+  amazon.aws.aws_s3:
+    aws_access_key: "{{ lsf.installer.aws_access_key }}"
+    aws_secret_key: "{{ lsf.installer.aws_secret_key}}"
+    s3_url: "{{ lsf.installer.s3_url }}"
+    bucket: "{{ lsf.installer.s3_bucket_name }}"
+    object: "{{ lsf.installer.bin }}"
+    dest: "{{ lsf.installer.target_path }}/{{ lsf.installer.bin }}"
+    mode: get
+  when:
+    - (lsf.installer.local_path is not defined) or (lsf.installer.local_path|length == 0)
+    - (lsf.installer.aws_access_key is defined) and (lsf.installer.aws_access_key|length > 0)
+    - (lsf.installer.aws_secret_key is defined) and (lsf.installer.aws_secret_key|length > 0)
+
+- name: Download patch from S3 bucket
+  amazon.aws.aws_s3:
+    aws_access_key: "{{ lsf.installer.aws_access_key }}"
+    aws_secret_key: "{{ lsf.installer.aws_secret_key}}"
+    s3_url: "{{ lsf.installer.s3_url }}"
+    bucket: "{{ lsf.installer.s3_bucket_name }}"
+    object: "{{ lsf.installer.patch }}"
+    dest: "{{ lsf.installer.target_path }}/{{ lsf.installer.patch }}"
+    mode: get
+  when:
+    - (lsf.installer.local_path is not defined) or (lsf.installer.local_path|length == 0)
+    - (lsf.installer.aws_access_key is defined) and (lsf.installer.aws_access_key|length > 0)
+    - (lsf.installer.aws_secret_key is defined) and (lsf.installer.aws_secret_key|length > 0)
+    - (lsf.installer.patch is defined) and (lsf.installer.patch|length > 0)
+
+# Get binaries from the local file system
+- name: Copy the LSF installer patch to the deployer machine
+  copy:
+    src: "{{ lsf.installer.local_path }}/{{ lsf.installer.patch }}"
+    dest: "{{ lsf.installer.target_path }}"
+    force: no
+  when: 
+    - (lsf.installer.local_path is defined) and (lsf.installer.local_path|length > 0)
+    - (lsf.installer.patch is defined) and (lsf.installer.patch|length > 0)
+
 - name: Copy the LSF installer to the deployer machine
   copy:
     src: "{{ lsf.installer.local_path }}/{{ lsf.installer.bin }}"
     dest: "{{ lsf.installer.target_path }}"
     force: no
+  when: (lsf.installer.local_path is defined) and (lsf.installer.local_path|length > 0)
+
+# Now change the permission of the binaries
+- name: Change permissions for installer patch to executable
+  file:
+    path: "{{ lsf.installer.target_path }}/{{ lsf.installer.patch }}"
+    mode: "0700"
+  when: 
+    - (lsf.installer.patch is defined) and (lsf.installer.patch|length > 0)
 
 - name: Change permissions for installer to executable
   file:
     path: "{{ lsf.installer.target_path }}/{{ lsf.installer.bin }}"
     mode: "0700"
-
-- name: Install necessary packages
-  yum:
-    name: [httpd, createrepo, emacs-nox, rsync, yum-utils, ipmitool, net-tools, lsof, bc, unzip]
-    state: latest
 
 - name: Extract the deployer, and accept the license agreement
   command: "{{ lsf.installer.target_path }}/{{ lsf.installer.bin }}"
@@ -28,7 +118,10 @@
     stdin: |
       1
 
-
+- name: Extract the patch
+  command: "{{ lsf.installer.target_path }}/{{ lsf.installer.patch }}"
+  when: 
+    - (lsf.installer.patch is defined) and (lsf.installer.patch|length > 0)
 
 - name: Create soft link to lsf_install/playbook in /root
   file:

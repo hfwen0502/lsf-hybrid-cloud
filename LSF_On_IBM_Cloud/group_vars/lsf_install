@@ -7,10 +7,17 @@
 
 lsf:
   installer:
-    local_path: ./Packages
     target_path: /root
+    #bin: lsfshpc10.2.0.11-x86_64.bin
     bin: lsfshpc10.2.0.9-x86_64.bin
-
+    # comment below if no patch
+    #patch: suite10.2.0.11-build600160-x86_64.bin
+    # uncoment below if binaries are from the local file system
+    #local_path: ./Packages
+    aws_access_key: <your hmac access key>
+    aws_secret_key: <your hmac secret key>
+    s3_url: https://s3.us-south.cloud-object-storage.appdomain.cloud
+    s3_bucket_name: lsf-binary
 
 multicluster:
   cloud:

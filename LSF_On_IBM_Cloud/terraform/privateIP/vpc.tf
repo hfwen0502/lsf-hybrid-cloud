@@ -46,9 +46,14 @@ variable "lsf_cluster_name" {}
 #     default = "default"
 # }
 
+data "ibm_resource_group" "rg" {
+  name = var.resource_group
+}
+
 resource ibm_is_vpc "vpc" {
   name = "${var.base_name}-vpc"
 #  address_prefix_management = var.address_mgmt
+  resource_group = data.ibm_resource_group.rg.id
 }
 
 resource "ibm_is_public_gateway" "mygateway" {
@@ -60,6 +65,7 @@ resource "ibm_is_public_gateway" "mygateway" {
     timeouts {
         create = "90m"
     }
+    resource_group = data.ibm_resource_group.rg.id
 }
 
 
@@ -85,21 +91,30 @@ resource ibm_is_subnet "subnet" {
   name = "${var.base_name}-subnet"
   vpc  = ibm_is_vpc.vpc.id
   zone = var.zone
-  total_ipv4_address_count = 256
+  total_ipv4_address_count = var.total_ipv4_address_count
   public_gateway = ibm_is_public_gateway.mygateway.id
+  resource_group = data.ibm_resource_group.rg.id
+}
+
+variable "user_ips" {
+  description = "a list of external ips"
+  type        = list(string)
+  default     = ["69.119.189.33", "129.34.20.23","108.41.32.247"]
 }
 
 resource "ibm_is_security_group" "sg" {
     name = "${var.base_name}-sg"
     vpc = ibm_is_vpc.vpc.id
+    resource_group = data.ibm_resource_group.rg.id
 }
 
 # allow all incoming network traffic on port 22
 resource "ibm_is_security_group_rule" "ingress_ssh_all" {
+  for_each = toset(var.user_ips)
   group     = ibm_is_security_group.sg.id
   direction = "inbound"
 #  remote    = "169.0.0.0/8"
-  remote    = "0.0.0.0/0"
+  remote    = each.value
 
   tcp {
     port_min = 22
@@ -189,6 +204,7 @@ resource "ibm_is_instance" "login" {
   vpc     = ibm_is_vpc.vpc.id
   zone    = var.zone
   keys    = [data.ibm_is_ssh_key.ssh_key.id]
+  resource_group = data.ibm_resource_group.rg.id
 
   # fip will be assinged
   primary_network_interface {
@@ -207,6 +223,7 @@ resource "ibm_is_instance" "worker" {
   zone    = var.zone
   keys    = [data.ibm_is_ssh_key.ssh_key.id]
   count   = var.worker_nodes
+  resource_group = data.ibm_resource_group.rg.id
 
   primary_network_interface {
     name   = "eth0"
@@ -224,6 +241,7 @@ resource "ibm_is_instance" "master" {
   zone    = var.zone
   keys    = [data.ibm_is_ssh_key.ssh_key.id]
   count   = var.master_nodes
+  resource_group = data.ibm_resource_group.rg.id
 
   primary_network_interface {
     name   = "eth0"
@@ -235,9 +253,9 @@ resource "ibm_is_instance" "master" {
 }
 
 ####DNS Settings####
-data "ibm_resource_group" "rg" {
-  name = "Default"
-}
+#data "ibm_resource_group" "rg" {
+#  name = "Default"
+#}
 
 resource "ibm_resource_instance" "lsf-dns-instance" {
   name              = "${var.base_name}-dns"
@@ -302,9 +320,12 @@ resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
 resource "ibm_is_volume" "master_nfs" {
   count    = var.master_nodes
   name     = "${var.base_name}-masternfs-${count.index}-volume"
-  profile  = var.volume_profile
+  #profile  = var.volume_profile
+  profile = "custom"
+  iops = var.volume_iops
   capacity = var.volume_capacity
   zone     = var.zone
+  resource_group = data.ibm_resource_group.rg.id
 }
 
 ###### Floating IPs ######
@@ -312,6 +333,7 @@ resource "ibm_is_volume" "master_nfs" {
 resource "ibm_is_floating_ip" "login_fip" {
   name   = "${var.base_name}-login-fip"
   target = ibm_is_instance.login.primary_network_interface[0].id
+  resource_group = data.ibm_resource_group.rg.id
   lifecycle {
     ignore_changes = [resource_group]
   }
@@ -433,6 +455,7 @@ resource "local_file" "ssh_config" {
 resource "local_file" "GEN2-config" {
   content = templatefile("${path.module}/templates/GEN2-config.tpl",
     {
+        g2rg_id     = data.ibm_resource_group.rg.id
         g2region    = var.region
         g2zone      = var.zone
         g2vpc_id    = ibm_is_vpc.vpc.id
@@ -444,6 +467,8 @@ resource "local_file" "GEN2-config" {
         g2dns_instance = ibm_resource_instance.lsf-dns-instance.guid
         g2dns_zone     = ibm_dns_zone.lsf-test-zone.zone_id
         g2domain_name  = var.domain_name
+        g2cidr_size    = var.total_ipv4_address_count - 8 - var.master_nodes - var.worker_nodes
+        g2ncores       = ibm_is_instance.worker[0].vcpu[0].count/2
   })
   filename        = "${local.gen_file_path}/GEN2-cfg.yml"
   file_permission = "0666"

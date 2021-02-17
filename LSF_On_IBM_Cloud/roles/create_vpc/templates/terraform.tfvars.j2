@@ -18,10 +18,12 @@ domain_name  = "{{domain_name}}"
 #Adjust the VMs for works and nfs servers.
 worker_nodes  = "{{worker_nodes}}"
 master_nodes  = "{{master_nodes}}"
+total_ipv4_address_count = "{{total_ipv4_address_count}}"
 
 #Use the LON data center
 region       = "{{vpc_region}}"
 zone         = "{{vpc_zone}}"
+resource_group = "{{resource_group}}"
 
 # specify your key name on the data center
 key_name     = "{{key_name}}"
@@ -40,6 +42,7 @@ login_profile = "{{login_profile}}"
 # Can only be centos/RedHat as ansible scripts are based on centos.
 image_name   = "{{image_name}}"
 volume_capacity = "{{volume_capacity}}"
+volume_iops = "{{volume_iops}}"
 
 volume_dir = "{{volume_dir}}"
 

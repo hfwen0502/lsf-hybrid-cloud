@@ -28,6 +28,18 @@ variable volume_capacity {
   default = 100
 }
 
+variable volume_iops {
+  default = 300
+}
+
 variable volume_dir {
   default = "/mnt/nfs"
+}
+
+variable resource_group {
+  default = "Default"
+}
+
+variable total_ipv4_address_count {
+  default = 256
 }
