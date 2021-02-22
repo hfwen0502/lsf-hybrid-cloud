@@ -12,6 +12,19 @@
   command: "ssh-keygen -q -t rsa -f {{ gen_files_dir }}/id_rsa -C \"root@{{ hostvars[groups['master'][0]]['inventory_hostname'] }}\" -N \"\""
   args:
     creates: "{{ gen_files_dir }}/id_rsa"
+  register: ifcreate
+
+#- debug:
+#    var: ifcreate
+
+- name: Create a key on the cloud to store the master key
+  shell: ibmcloud is keyc {{ rc_master_key }} @{{ gen_files_dir }}/id_rsa.pub --resource-group-name {{ resource_group }}
+  register: keyc_output
+  failed_when: keyc_output.rc != 0
+  when: ifcreate.stdout.find('skipped') == -1
+
+#- debug:
+#    var: keyc_output
 
 - name: Generate ssh-key pair for lsfadmin
   command: "ssh-keygen -q -t rsa -f {{ gen_files_dir }}/id_rsa.lsfadmin -C \"lsfadmin@{{ hostvars[groups['master'][0]]['inventory_hostname'] }}\" -N \"\""

@@ -138,3 +138,8 @@
 
 - name: Set up NFS server on deployer
   include: nfs_server.yml
+  when: with_local_storage == false
+
+- name: Set up NFS server on deployer
+  include: nfs_server_ssd.yml
+  when: with_local_storage == true

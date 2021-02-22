@@ -1,0 +1,53 @@
+---
+# -----------------------------------
+#  Copyright IBM Corp. 1992,2020. All rights reserved.
+#  US Government Users Restricted Rights - Use, duplication or disclosure
+#  restricted by GSA ADP Schedule Contract with IBM Corp.
+# -----------------------------------
+
+- stat:
+    path: "{{nfs_mnt_dir}}/.mounted"
+  register: mnt_fstat
+
+
+- block:
+#    - name: Check device that has the size users specify
+#      shell: pvcreate /dev/vdb /dev/vdc && vgcreate vg /dev/vdb /dev/vdc && lvcreate -l 100%FREE -n lv0 vg -i2
+
+    - name: Create a file system
+      filesystem:
+        fstype: ext4
+#        dev: "/dev/vg/lv0"
+        dev: "/dev/vdb"
+        force: no
+
+    - name: Mount block storage
+      mount:
+        path: "{{ nfs_mnt_dir }}"
+#        src: "/dev/vg/lv0"
+        src: "/dev/vdb"
+        state: mounted
+        fstype: ext4
+
+  when: mnt_fstat.stat.exists == False
+
+
+- name: Make sure nfs-utils are installed
+  yum: name={{ item }} state=installed update_cache=yes
+  with_items:
+    - nfs-utils
+
+- name: update /etc/exports
+  lineinfile:
+    path: /etc/exports
+    regexp: "{{ nfs_mnt_dir }}"
+    line: "{{ nfs_mnt_dir }} *(rw,sync,no_root_squash)"
+
+#- name: update /etc/sysconfig/nfs
+#  lineinfile:
+#    path: /etc/sysconfig/nfs
+#    regexp: '^.*RPCNFSDCOUNT.*'
+#    line: RPCNFSDCOUNT=32
+
+- name: restart nfs server
+  service: name=nfs-server state=restarted

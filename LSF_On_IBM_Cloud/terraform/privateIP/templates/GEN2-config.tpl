@@ -15,3 +15,5 @@ GEN2_DNS_Zone_ID: "${g2dns_zone}"
 GEN2_DNS_Domain_Name: "${g2domain_name}"
 
 rc_maxNumber: ${g2cidr_size}
+
+rc_master_key: ${rc_master_key}

@@ -51,6 +51,30 @@
       command: "mv {{gen_files_dir}} {{gen_files_dir}}-{{ansible_date_time.iso8601_basic_short}}.backup"
       when: tf_output.failed == false
 
+    - name: Checking the key for the lsf master
+      shell: ibmcloud is keys | grep "{{ rc_master_key }}"
+      register: key_output
+      ignore_errors: yes
+      tags:
+        - delete_key
+
+    - set_fact:
+        keyid: "{{ key_output.stdout | regex_search('[^\\s]+') }}"
+      when: key_output.failed == false
+      tags:
+        - delete_key
+
+    #- debug:
+    #    var: keyid
+    #  tags:
+    #    - delete_key
+
+    - name: deleting the key {{ rc_master_key }} for the lsf master
+      shell: ibmcloud is keyd {{ keyid }} -f
+      when: key_output.failed == false
+      tags:
+        - delete_key
+
     - block:
         - name: "List remaining allocated resources (according to terraform)"
           command:

@@ -40,6 +40,8 @@ variable "vpn_peer" {
   })
 }
 variable "lsf_cluster_name" {}
+variable "rc_master_key" {}
+variable "with_local_storage" {}
 
 #variable "address_prefix" {}
 # variable "address_mgmt" {
@@ -300,6 +302,21 @@ resource "ibm_dns_resource_record" "lsf-dns-worker-record-a" {
   rdata       = element(local.workers_priv, count.index)
 }
 
+resource "ibm_dns_resource_record" "lsf-dns-worker-record-ptr" {
+  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+  type        = "PTR"
+  count       = var.worker_nodes
+  #name        = element(ibm_is_instance.worker[*].name, count.index)
+  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
+  #rdata       = element(local.workers_priv, count.index)
+  name        = element(local.workers_priv, count.index)
+  rdata       = "${element(ibm_is_instance.worker[*].name, count.index)}.${var.base_name}.com"
+  depends_on = [
+    ibm_dns_resource_record.lsf-dns-worker-record-a,
+  ]
+}
+
 resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
   instance_id = ibm_resource_instance.lsf-dns-instance.guid
   zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
@@ -310,6 +327,21 @@ resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
   rdata       = element(local.masters_priv, count.index)
 }
 
+resource "ibm_dns_resource_record" "lsf-dns-master-record-ptr" {
+  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+  type        = "PTR"
+  count       = var.master_nodes
+  #name        = element(ibm_is_instance.master[*].name, count.index)
+  #count       = length(local.masters_priv) ##fixme: how to register with multiple vnics
+  #rdata       = element(local.masters_priv, count.index)
+  name        = element(local.masters_priv, count.index)
+  rdata       = "${element(ibm_is_instance.master[*].name, count.index)}.${var.base_name}.com"
+  depends_on = [
+    ibm_dns_resource_record.lsf-dns-master-record-a,
+  ]
+}
+
 #data "ibm_dns_zones" "lsf-dns-test" {
 #  depends_on = [ibm_dns_zone.lsf-test-zone]
 #  instance_id = ibm_resource_instance.lsf-dns-instance.guid
@@ -318,6 +350,7 @@ resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
 
 ###### Volumes ######
 resource "ibm_is_volume" "master_nfs" {
+  #count    = var.with_local_storage ? 0 : var.master_nodes
   count    = var.master_nodes
   name     = "${var.base_name}-masternfs-${count.index}-volume"
   #profile  = var.volume_profile
@@ -340,28 +373,28 @@ resource "ibm_is_floating_ip" "login_fip" {
 }
 
 ##### VPN #####
-# z1 gateway
-resource "ibm_is_vpn_gateway" "vpn_gateway" {
-  name   = "${var.base_name}-vpn-gw"
-  subnet = ibm_is_subnet.subnet.id
-}
-
-resource "ibm_is_ike_policy" "ike_policy" {
-  name                     = "${var.base_name}-ike-policy"
-  authentication_algorithm = var.vpn_peer.security.auth
-  encryption_algorithm     = var.vpn_peer.security.encr
-  dh_group                 = var.vpn_peer.security.DH_Group
-  ike_version              = var.vpn_peer.security.ike.version
-  key_lifetime             = var.vpn_peer.security.ike.key_lifetime
-}
-
-resource "ibm_is_ipsec_policy" "ipsec_policy" {
-  name                     = "${var.base_name}-ipsec-policy"
-  authentication_algorithm = var.vpn_peer.security.auth
-  encryption_algorithm     = var.vpn_peer.security.encr
-  pfs                      = var.vpn_peer.security.ip_sec.PFS
-  key_lifetime             = var.vpn_peer.security.ip_sec.key_lifetime
-}
+## z1 gateway
+#resource "ibm_is_vpn_gateway" "vpn_gateway" {
+#  name   = "${var.base_name}-vpn-gw"
+#  subnet = ibm_is_subnet.subnet.id
+#}
+#
+#resource "ibm_is_ike_policy" "ike_policy" {
+#  name                     = "${var.base_name}-ike-policy"
+#  authentication_algorithm = var.vpn_peer.security.auth
+#  encryption_algorithm     = var.vpn_peer.security.encr
+#  dh_group                 = var.vpn_peer.security.DH_Group
+#  ike_version              = var.vpn_peer.security.ike.version
+#  key_lifetime             = var.vpn_peer.security.ike.key_lifetime
+#}
+#
+#resource "ibm_is_ipsec_policy" "ipsec_policy" {
+#  name                     = "${var.base_name}-ipsec-policy"
+#  authentication_algorithm = var.vpn_peer.security.auth
+#  encryption_algorithm     = var.vpn_peer.security.encr
+#  pfs                      = var.vpn_peer.security.ip_sec.PFS
+#  key_lifetime             = var.vpn_peer.security.ip_sec.key_lifetime
+#}
 
 # z1 connection
 # resource "ibm_is_vpn_gateway_connection" "vpn_conn" {
@@ -429,6 +462,10 @@ resource "local_file" "inventory" {
       deployer_ip        = local.masters_priv[0]
       ssh_config         = "${var.gen_files_dir}/ssh_config"
       lsf_cluster_name   = var.lsf_cluster_name
+      g2cidr_size    = var.total_ipv4_address_count - 8 - var.master_nodes - var.worker_nodes
+      rc_master_key     = var.rc_master_key
+      resource_group    = var.resource_group
+      with_local_storage    = var.with_local_storage
   })
   filename        = "${local.gen_file_path}/cluster.inventory"
   file_permission = "0666"
@@ -462,29 +499,30 @@ resource "local_file" "GEN2-config" {
         g2img_id    = data.ibm_is_image.image.id
         g2sn_id     = ibm_is_subnet.subnet.id
         g2sg_id     = ibm_is_security_group.sg.id
-        g2profile   = var.master_profile
+        g2profile   = var.worker_profile
         g2worker_mem = local.worker_mem
         g2dns_instance = ibm_resource_instance.lsf-dns-instance.guid
         g2dns_zone     = ibm_dns_zone.lsf-test-zone.zone_id
         g2domain_name  = var.domain_name
         g2cidr_size    = var.total_ipv4_address_count - 8 - var.master_nodes - var.worker_nodes
         g2ncores       = ibm_is_instance.worker[0].vcpu[0].count/2
+        rc_master_key     = var.rc_master_key
   })
   filename        = "${local.gen_file_path}/GEN2-cfg.yml"
   file_permission = "0666"
 }
 
-resource "local_file" "vpn_file" {
-  content = templatefile("${path.module}/templates/vpn_file.tpl",
-    {
-        vpn_region     = var.region
-        conn_name      = "${var.base_name}-vpn-conn"
-        vpn_gateway    = ibm_is_vpn_gateway.vpn_gateway.id
-        local_cidr     = ibm_is_subnet.subnet.ipv4_cidr_block
-        vpn_peer       = var.vpn_peer
-        vpn_ike_pol    = ibm_is_ike_policy.ike_policy.id
-        vpn_ipsec_pol  = ibm_is_ipsec_policy.ipsec_policy.id
-  })
-  filename        = "${local.gen_file_path}/vpn.yml"
-  file_permission = "0666"
-}
+#resource "local_file" "vpn_file" {
+#  content = templatefile("${path.module}/templates/vpn_file.tpl",
+#    {
+#        vpn_region     = var.region
+#        conn_name      = "${var.base_name}-vpn-conn"
+#        vpn_gateway    = ibm_is_vpn_gateway.vpn_gateway.id
+#        local_cidr     = ibm_is_subnet.subnet.ipv4_cidr_block
+#        vpn_peer       = var.vpn_peer
+#        vpn_ike_pol    = ibm_is_ike_policy.ike_policy.id
+#        vpn_ipsec_pol  = ibm_is_ipsec_policy.ipsec_policy.id
+#  })
+#  filename        = "${local.gen_file_path}/vpn.yml"
+#  file_permission = "0666"
+#}

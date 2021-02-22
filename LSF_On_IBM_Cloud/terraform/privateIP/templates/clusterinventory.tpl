@@ -61,6 +61,10 @@ nfs_mnt_dir=${nfs_mnt_dir}
 lsf_cluster_name=${lsf_cluster_name}
 
 
-[lsf_rc:vars]
+[all:vars]
 LSF_NFS_MOUNT_DIR=${nfs_mnt_dir}
 LSF_CLUSTER_NAME=${lsf_cluster_name}
+resource_group=${resource_group}
+rc_maxNumber=${g2cidr_size}
+rc_master_key=${rc_master_key}
+with_local_storage=${with_local_storage}

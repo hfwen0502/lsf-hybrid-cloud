@@ -18,10 +18,23 @@ tfhost:
     vpc_region: "your-vpc-region"
     vpc_zone: "your-vpc-zone"
     resource_prefix: "your-resource-prefix"
+    # this needs to be also defined lsf.resource_group in group_vars/lsf_install
+    resource_group: "your-resource-group"
+
+    # total_ipv4_address_count will decide how many dynamic hosts can be created 
+    # (=total_ipv4_address_count-woker_nodes-master_nodes)
+    # the number has to be power of 2
+    total_ipv4_address_count: 256
 
     domain_name: "your.cloud.domain"
     worker_nodes: 2
+    # currently support only 1 LSF master    
     master_nodes: 1
+    # specify a unique ssh key name on the data center to store the master's public key
+    # NEED to put the same key name in lsf.rc_master_key in group_vars/lsf_install
+    # note: the creation of the ssh key pair on the master will be handled by the playbooks
+    #       the creation of the key resource on the cloud  will be handled by the playbooks
+    rc_master_key: "rc_master_key"
 
     # specify your ssh key name on the data center
     key_name: "your-vpc-key"
@@ -43,6 +56,8 @@ tfhost:
     # Can only be centos/RedHat as ansible scripts are based on centos.
     image_name: "ibm-centos-7-6-minimal-amd64-2"
     volume_capacity: 100
+    # IOPS/GB can be 3, 5 and 10. For example, if 5 IOPS/GB is preferred, please specify volume_iops = volume_capacity x 5
+    volume_iops: 300
     volume_dir: "/mnt/nfs"
 
     # VPN peer (local) configuration
