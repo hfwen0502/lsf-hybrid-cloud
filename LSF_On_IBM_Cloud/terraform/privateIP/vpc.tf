@@ -150,6 +150,18 @@ resource "ibm_is_security_group_rule" "ingress_tcp_all" {
   }
 }
 
+# allow all incoming UDP network traffic in the security group
+resource "ibm_is_security_group_rule" "ingress_udp_all" {
+  group     = ibm_is_security_group.sg.id
+  direction = "inbound"
+  remote    =  ibm_is_security_group.sg.id
+
+  udp {
+    port_min = 1
+    port_max = 65535
+  }
+}
+
 # enable PING across instances
 resource "ibm_is_security_group_rule" "ingress_icmp_type0" {
   group     = ibm_is_security_group.sg.id
@@ -297,7 +309,8 @@ resource "ibm_dns_resource_record" "lsf-dns-worker-record-a" {
   zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
   type        = "A"
   count       = var.worker_nodes
-  name        = element(ibm_is_instance.worker[*].name, count.index)
+  #name        = element(ibm_is_instance.worker[*].name, count.index)
+  name        = "${var.base_name}-worker-${count.index}"
   #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
   rdata       = element(local.workers_priv, count.index)
 }
@@ -322,7 +335,8 @@ resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
   zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
   type        = "A"
   count       = var.master_nodes
-  name        = element(ibm_is_instance.master[*].name, count.index)
+  #name        = element(ibm_is_instance.master[*].name, count.index)
+  name        = "${var.base_name}-master-${count.index}"
   #count       = length(local.masters_priv) ##fixme: how to register with multiple vnics
   rdata       = element(local.masters_priv, count.index)
 }
@@ -339,6 +353,31 @@ resource "ibm_dns_resource_record" "lsf-dns-master-record-ptr" {
   rdata       = "${element(ibm_is_instance.master[*].name, count.index)}.${var.base_name}.com"
   depends_on = [
     ibm_dns_resource_record.lsf-dns-master-record-a,
+  ]
+}
+
+resource "ibm_dns_resource_record" "lsf-dns-dynamic-worker-record-a" {
+  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+  type        = "A"
+  count       = local.iplist_size
+  name        = sort(local.final_hostlist)[count.index]
+  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
+  rdata       = sort(local.final_iplist)[count.index]
+  depends_on = [
+    ibm_is_instance.master, ibm_is_instance.worker
+  ]
+}
+
+resource "ibm_dns_resource_record" "lsf-dns-dynamic-worker-record-ptr" {
+  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+  type        = "PTR"
+  count       = local.iplist_size
+  name        = sort(local.final_iplist)[count.index]
+  rdata       = "${sort(local.final_hostlist)[count.index]}.${var.base_name}.com"
+  depends_on = [
+    ibm_dns_resource_record.lsf-dns-dynamic-worker-record-a,
   ]
 }
 
@@ -444,6 +483,23 @@ locals {
   worker_mem = "${element(ibm_is_instance.worker[*].memory, 0) * 1024}"
 
   gen_file_path = "${var.gen_files_dir}"
+
+  iplist_size = ibm_is_subnet.subnet.total_ipv4_address_count - var.worker_nodes - var.master_nodes
+
+  full_iplist = [
+    for idx in range(ibm_is_subnet.subnet.total_ipv4_address_count) :
+    "${cidrhost(ibm_is_subnet.subnet.ipv4_cidr_block,idx)}"
+  ]
+
+  partial_iplist = setsubtract(local.full_iplist, local.workers_priv)
+  final_iplist = setsubtract(local.partial_iplist, local.masters_priv)
+
+  # need to be consistent with rc_vm_prefix in clusterinventory
+  final_hostlist = [ 
+    for ip in local.final_iplist:
+    "${var.base_name}-rc-${replace("${ip}", "." , "-")}"
+  ]
+
 }
 
 ##############################################
@@ -464,6 +520,8 @@ resource "local_file" "inventory" {
       lsf_cluster_name   = var.lsf_cluster_name
       g2cidr_size    = var.total_ipv4_address_count - 8 - var.master_nodes - var.worker_nodes
       rc_master_key     = var.rc_master_key
+      # need to be consistent with final_hostlist
+      rc_vm_prefix      = "${var.base_name}-rc"
       resource_group    = var.resource_group
       with_local_storage    = var.with_local_storage
   })
@@ -525,4 +583,9 @@ resource "local_file" "GEN2-config" {
 #  })
 #  filename        = "${local.gen_file_path}/vpn.yml"
 #  file_permission = "0666"
+#}
+
+#resource "local_file" "dns_mapping" {
+#  content  = join("\n", local.final_hostlist)
+#  filename = "${local.gen_file_path}/dnsmapping"
 #}

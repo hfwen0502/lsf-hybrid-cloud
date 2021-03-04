@@ -136,10 +136,10 @@
     state: link
     force: yes
 
-- name: Set up NFS server on deployer
+- name: Set up NFS server on deployer with EBS
   include: nfs_server.yml
   when: with_local_storage == false
 
-- name: Set up NFS server on deployer
+- name: Set up NFS server on deployer using local storage
   include: nfs_server_ssd.yml
   when: with_local_storage == true

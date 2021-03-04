@@ -67,4 +67,5 @@ LSF_CLUSTER_NAME=${lsf_cluster_name}
 resource_group=${resource_group}
 rc_maxNumber=${g2cidr_size}
 rc_master_key=${rc_master_key}
+rc_vm_prefix=${rc_vm_prefix}
 with_local_storage=${with_local_storage}
