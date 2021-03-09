@@ -298,7 +298,7 @@ resource "ibm_dns_permitted_network" "test-pdns-permitted-network-nw" {
 #  instance_id = ibm_dns_zone.test-pdns-zone.instance_id
 #  zone_id = ibm_dns_zone.test-pdns-zone.zone_id
 #}
-#
+
 #output "dns_permitted_nw_output" {
 #  value = data.ibm_dns_permitted_networks.test.dns_permitted_networks
 #}
@@ -400,8 +400,8 @@ resource "ibm_is_volume" "master_nfs" {
   resource_group = data.ibm_resource_group.rg.id
 }
 
-###### Floating IPs ######
-// For login
+####### Floating IPs ######
+#// For login
 resource "ibm_is_floating_ip" "login_fip" {
   name   = "${var.base_name}-login-fip"
   target = ibm_is_instance.login.primary_network_interface[0].id
@@ -585,7 +585,12 @@ resource "local_file" "GEN2-config" {
 #  file_permission = "0666"
 #}
 
-#resource "local_file" "dns_mapping" {
-#  content  = join("\n", local.final_hostlist)
-#  filename = "${local.gen_file_path}/dnsmapping"
-#}
+resource "local_file" "iplist" {
+  content  = join("\n", local.final_iplist)
+  filename = "${local.gen_file_path}/iplist"
+}
+
+resource "local_file" "hostlist" {
+  content  = join("\n", local.final_hostlist)
+  filename = "${local.gen_file_path}/hostlist"
+}
