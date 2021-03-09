@@ -18,7 +18,7 @@ tfhost:
     vpc_region: "your-vpc-region"
     vpc_zone: "your-vpc-zone"
     resource_prefix: "your-resource-prefix"
-    # this needs to be also defined lsf.resource_group in group_vars/lsf_install
+    #If your account has not been configured with different resource groups, just specify "Default" below.
     resource_group: "your-resource-group"
 
     # total_ipv4_address_count will decide how many dynamic hosts can be created 
