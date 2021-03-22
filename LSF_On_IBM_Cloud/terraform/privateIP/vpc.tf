@@ -267,124 +267,120 @@ resource "ibm_is_instance" "master" {
 }
 
 ####DNS Settings####
-#data "ibm_resource_group" "rg" {
-#  name = "Default"
+#resource "ibm_resource_instance" "lsf-dns-instance" {
+#  name              = "${var.base_name}-dns"
+#  resource_group_id = data.ibm_resource_group.rg.id
+#  location          = "global"
+#  service           = "dns-svcs"
+#  plan              = "standard-dns"
 #}
-
-resource "ibm_resource_instance" "lsf-dns-instance" {
-  name              = "${var.base_name}-dns"
-  resource_group_id = data.ibm_resource_group.rg.id
-  location          = "global"
-  service           = "dns-svcs"
-  plan              = "standard-dns"
-}
-
-resource "ibm_dns_zone" "lsf-test-zone" {
-  name        = var.domain_name
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  description = "lsf test zone"
-  label       = "${var.base_name}-dns"
-}
-
-resource "ibm_dns_permitted_network" "test-pdns-permitted-network-nw" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  vpc_crn     = ibm_is_vpc.vpc.crn
-}
-
-
-#data "ibm_dns_permitted_networks" "test" {
-#  depends_on = [ibm_dns_permitted_network.test-pdns-permitted-network-nw]
-#  instance_id = ibm_dns_zone.test-pdns-zone.instance_id
-#  zone_id = ibm_dns_zone.test-pdns-zone.zone_id
-#}
-
-#output "dns_permitted_nw_output" {
-#  value = data.ibm_dns_permitted_networks.test.dns_permitted_networks
-#}
-
-
-resource "ibm_dns_resource_record" "lsf-dns-worker-record-a" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  type        = "A"
-  count       = var.worker_nodes
-  #name        = element(ibm_is_instance.worker[*].name, count.index)
-  name        = "${var.base_name}-worker-${count.index}"
-  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
-  rdata       = element(local.workers_priv, count.index)
-}
-
-resource "ibm_dns_resource_record" "lsf-dns-worker-record-ptr" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  type        = "PTR"
-  count       = var.worker_nodes
-  #name        = element(ibm_is_instance.worker[*].name, count.index)
-  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
-  #rdata       = element(local.workers_priv, count.index)
-  name        = element(local.workers_priv, count.index)
-  rdata       = "${element(ibm_is_instance.worker[*].name, count.index)}.${var.base_name}.com"
-  depends_on = [
-    ibm_dns_resource_record.lsf-dns-worker-record-a,
-  ]
-}
-
-resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  type        = "A"
-  count       = var.master_nodes
-  #name        = element(ibm_is_instance.master[*].name, count.index)
-  name        = "${var.base_name}-master-${count.index}"
-  #count       = length(local.masters_priv) ##fixme: how to register with multiple vnics
-  rdata       = element(local.masters_priv, count.index)
-}
-
-resource "ibm_dns_resource_record" "lsf-dns-master-record-ptr" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  type        = "PTR"
-  count       = var.master_nodes
-  #name        = element(ibm_is_instance.master[*].name, count.index)
-  #count       = length(local.masters_priv) ##fixme: how to register with multiple vnics
-  #rdata       = element(local.masters_priv, count.index)
-  name        = element(local.masters_priv, count.index)
-  rdata       = "${element(ibm_is_instance.master[*].name, count.index)}.${var.base_name}.com"
-  depends_on = [
-    ibm_dns_resource_record.lsf-dns-master-record-a,
-  ]
-}
-
-resource "ibm_dns_resource_record" "lsf-dns-dynamic-worker-record-a" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  type        = "A"
-  count       = local.iplist_size
-  name        = sort(local.final_hostlist)[count.index]
-  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
-  rdata       = sort(local.final_iplist)[count.index]
-  depends_on = [
-    ibm_is_instance.master, ibm_is_instance.worker
-  ]
-}
-
-resource "ibm_dns_resource_record" "lsf-dns-dynamic-worker-record-ptr" {
-  instance_id = ibm_resource_instance.lsf-dns-instance.guid
-  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
-  type        = "PTR"
-  count       = local.iplist_size
-  name        = sort(local.final_iplist)[count.index]
-  rdata       = "${sort(local.final_hostlist)[count.index]}.${var.base_name}.com"
-  depends_on = [
-    ibm_dns_resource_record.lsf-dns-dynamic-worker-record-a,
-  ]
-}
-
-#data "ibm_dns_zones" "lsf-dns-test" {
-#  depends_on = [ibm_dns_zone.lsf-test-zone]
+#
+#resource "ibm_dns_zone" "lsf-test-zone" {
+#  name        = var.domain_name
 #  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  description = "lsf test zone"
+#  label       = "${var.base_name}-dns"
 #}
+#
+#resource "ibm_dns_permitted_network" "test-pdns-permitted-network-nw" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  vpc_crn     = ibm_is_vpc.vpc.crn
+#}
+#
+#
+##data "ibm_dns_permitted_networks" "test" {
+##  depends_on = [ibm_dns_permitted_network.test-pdns-permitted-network-nw]
+##  instance_id = ibm_dns_zone.test-pdns-zone.instance_id
+##  zone_id = ibm_dns_zone.test-pdns-zone.zone_id
+##}
+#
+##output "dns_permitted_nw_output" {
+##  value = data.ibm_dns_permitted_networks.test.dns_permitted_networks
+##}
+#
+#
+#resource "ibm_dns_resource_record" "lsf-dns-worker-record-a" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  type        = "A"
+#  count       = var.worker_nodes
+#  #name        = element(ibm_is_instance.worker[*].name, count.index)
+#  name        = "${var.base_name}-worker-${count.index}"
+#  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
+#  rdata       = element(local.workers_priv, count.index)
+#}
+#
+#resource "ibm_dns_resource_record" "lsf-dns-worker-record-ptr" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  type        = "PTR"
+#  count       = var.worker_nodes
+#  #name        = element(ibm_is_instance.worker[*].name, count.index)
+#  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
+#  #rdata       = element(local.workers_priv, count.index)
+#  name        = element(local.workers_priv, count.index)
+#  rdata       = "${element(ibm_is_instance.worker[*].name, count.index)}.${var.base_name}.com"
+#  depends_on = [
+#    ibm_dns_resource_record.lsf-dns-worker-record-a,
+#  ]
+#}
+#
+#resource "ibm_dns_resource_record" "lsf-dns-master-record-a" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  type        = "A"
+#  count       = var.master_nodes
+#  #name        = element(ibm_is_instance.master[*].name, count.index)
+#  name        = "${var.base_name}-master-${count.index}"
+#  #count       = length(local.masters_priv) ##fixme: how to register with multiple vnics
+#  rdata       = element(local.masters_priv, count.index)
+#}
+#
+#resource "ibm_dns_resource_record" "lsf-dns-master-record-ptr" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  type        = "PTR"
+#  count       = var.master_nodes
+#  #name        = element(ibm_is_instance.master[*].name, count.index)
+#  #count       = length(local.masters_priv) ##fixme: how to register with multiple vnics
+#  #rdata       = element(local.masters_priv, count.index)
+#  name        = element(local.masters_priv, count.index)
+#  rdata       = "${element(ibm_is_instance.master[*].name, count.index)}.${var.base_name}.com"
+#  depends_on = [
+#    ibm_dns_resource_record.lsf-dns-master-record-a,
+#  ]
+#}
+#
+#resource "ibm_dns_resource_record" "lsf-dns-dynamic-worker-record-a" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  type        = "A"
+#  count       = local.iplist_size
+#  name        = sort(local.final_hostlist)[count.index]
+#  #count       = length(local.workers_priv) ##fixme: how to register with multiple vnics
+#  rdata       = sort(local.final_iplist)[count.index]
+#  depends_on = [
+#    ibm_is_instance.master, ibm_is_instance.worker
+#  ]
+#}
+#
+#resource "ibm_dns_resource_record" "lsf-dns-dynamic-worker-record-ptr" {
+#  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+#  zone_id     = ibm_dns_zone.lsf-test-zone.zone_id
+#  type        = "PTR"
+#  count       = local.iplist_size
+#  name        = sort(local.final_iplist)[count.index]
+#  rdata       = "${sort(local.final_hostlist)[count.index]}.${var.base_name}.com"
+#  depends_on = [
+#    ibm_dns_resource_record.lsf-dns-dynamic-worker-record-a,
+#  ]
+#}
+#
+##data "ibm_dns_zones" "lsf-dns-test" {
+##  depends_on = [ibm_dns_zone.lsf-test-zone]
+##  instance_id = ibm_resource_instance.lsf-dns-instance.guid
+##}
 
 
 ###### Volumes ######
@@ -465,7 +461,7 @@ locals {
 
   worker_hostlist = [
     for idx in range(var.worker_nodes) :
-    "${element(ibm_is_instance.worker[*].primary_network_interface[0].primary_ipv4_address, idx)} ${element(ibm_is_instance.worker[*].name, idx)}"
+    "${element(ibm_is_instance.worker[*].primary_network_interface[0].primary_ipv4_address, idx)} ${element(ibm_is_instance.worker[*].name, idx)} ${element(ibm_is_instance.worker[*].name, idx)}"
   ]
 
   masters = [
@@ -478,7 +474,7 @@ locals {
   ]
   master_hostlist = [
     for idx in range(var.master_nodes) :
-    "${element(ibm_is_instance.master[*].primary_network_interface[0].primary_ipv4_address, idx)} ${element(ibm_is_instance.master[*].name, idx)}"
+    "${element(ibm_is_instance.master[*].primary_network_interface[0].primary_ipv4_address, idx)} ${element(ibm_is_instance.master[*].name, idx)} ${element(ibm_is_instance.master[*].name, idx)}"
   ]
   worker_mem = "${element(ibm_is_instance.worker[*].memory, 0) * 1024}"
 
@@ -498,6 +494,13 @@ locals {
   final_hostlist = [ 
     for ip in local.final_iplist:
     "${var.base_name}-rc-${replace("${ip}", "." , "-")}"
+  ]
+
+  iplist = tolist(local.final_iplist)
+  hostlist = tolist(local.final_hostlist)
+  hosts = [
+    for idx in range(length(local.hostlist)):
+    "${element(local.iplist,idx)} ${element(local.hostlist, idx)} ${element(local.hostlist, idx)}"
   ]
 
 }
@@ -559,9 +562,9 @@ resource "local_file" "GEN2-config" {
         g2sg_id     = ibm_is_security_group.sg.id
         g2profile   = var.worker_profile
         g2worker_mem = local.worker_mem
-        g2dns_instance = ibm_resource_instance.lsf-dns-instance.guid
-        g2dns_zone     = ibm_dns_zone.lsf-test-zone.zone_id
-        g2domain_name  = var.domain_name
+        #g2dns_instance = ibm_resource_instance.lsf-dns-instance.guid
+        #g2dns_zone     = ibm_dns_zone.lsf-test-zone.zone_id
+        #g2domain_name  = var.domain_name
         g2cidr_size    = var.total_ipv4_address_count - 8 - var.master_nodes - var.worker_nodes
         g2ncores       = ibm_is_instance.worker[0].vcpu[0].count/2
         rc_master_key     = var.rc_master_key
@@ -593,4 +596,8 @@ resource "local_file" "iplist" {
 resource "local_file" "hostlist" {
   content  = join("\n", local.final_hostlist)
   filename = "${local.gen_file_path}/hostlist"
+}
+resource "local_file" "hosts" {
+  content  = join("\n", concat(local.master_hostlist, local.worker_hostlist, local.hosts))
+  filename = "${local.gen_file_path}/hosts"
 }

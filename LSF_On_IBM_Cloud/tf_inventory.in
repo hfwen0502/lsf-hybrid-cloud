@@ -51,6 +51,7 @@ tfhost:
     # the profile for different types of VMs
     worker_profile: "bx2-2x8"
     master_profile: "bx2-4x16"
+    with_local_storage: False
     login_profile: "cx2-2x4"
 
     # Can only be centos/RedHat as ansible scripts are based on centos.

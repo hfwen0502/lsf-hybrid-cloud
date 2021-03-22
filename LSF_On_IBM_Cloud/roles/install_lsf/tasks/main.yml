@@ -4,11 +4,15 @@
 #  US Government Users Restricted Rights - Use, duplication or disclosure
 #  restricted by GSA ADP Schedule Contract with IBM Corp.
 # -----------------------------------
+- include_tasks: "../../common/tasks/get_files_dir.yml"
+  when: gen_files_dir is undefined or gen_files_dir == ""
 
 - name: Run the actual deployment on the deployer
   command: "ansible-playbook -i lsf-inventory lsf-deploy.yml"
   args:
     chdir: /opt/ibm/lsf_installer/playbook
+  tags:
+    - long_play
 
 - name: Fetch the ansible.log file
   fetch:
@@ -31,6 +35,13 @@
   lineinfile:
     path: /opt/ibm/lsfsuite/lsf/conf/lsf.conf
     line: "LSF_SEND_CONFINFO_TCP_THRESHOLD=1200"
+
+- name: Set up LSF conf/hosts 
+  blockinfile:
+    path: "/opt/ibm/lsfsuite/lsf/conf/hosts"
+    block: "{{lookup('file', '{{ gen_files_dir }}/hosts')}}"
+    create: yes
+    state: present
 
 - name: Wait for a minute for things to settle
   pause:

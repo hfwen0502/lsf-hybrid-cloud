@@ -10,9 +10,6 @@ GEN2_PROFILE: "${g2profile}"
 CORES_PER_SOCKET: 1
 SOCKET_PER_NODE: ${g2ncores}
 MEMORY_PER_NODE: "${g2worker_mem}"
-GEN2_DNS_Instance_ID: "${g2dns_instance}"
-GEN2_DNS_Zone_ID: "${g2dns_zone}"
-GEN2_DNS_Domain_Name: "${g2domain_name}"
 
 rc_maxNumber: ${g2cidr_size}
 
