@@ -7,11 +7,13 @@
 variable "region" {}
 variable "apikey" {}
 
+# Or we can switch the region via export IC_REGION="eu-gb"
 terraform {
+  required_version = ">= 0.13"
   required_providers {
     ibm = {
-      source = "localdomain/provider/ibm"
-      version = "1.11.2"
+      source = "ibm-cloud/ibm"
+      version = "1.21.2"
     }
   }
 }
