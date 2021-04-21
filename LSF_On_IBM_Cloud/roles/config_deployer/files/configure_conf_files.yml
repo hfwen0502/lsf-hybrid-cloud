@@ -107,7 +107,7 @@
   lineinfile:
     dest: "{{ LSF_CONF_DIR }}/lsf.conf"
     state: present
-    line: 'LSF_ANNOUNCE_MASTER_TCP_WAITTIME=0'
+    line: 'LSF_ANNOUNCE_MASTER_TCP_WAITTIME=15'
   when:
     - USE_TCP | default(False) == True
 
